@@ -1,147 +1,262 @@
-# 🤖 ProcureBot — AI Procurement Agent
+# ProcureBot 🤖💸
 
-> Your AI procurement agent that autonomously buys digital services & APIs — with your money, your rules.
+> **The first AI agent that autonomously buys what it needs — paying with real USDC.**
 
-**Built for Locus Paygentic Hackathon #1** | [Live Demo](#deployment) | [GitHub](https://github.com/NeelShah1505/ProcureBot)
-
----
-
-## ✨ What is ProcureBot?
-
-ProcureBot is a fully autonomous AI agent that can **buy data, research, and media** on your behalf — paying micro-amounts of **USDC automatically** via [PayWithLocus](https://paywithlocus.com).
-
-Just type what you need in plain English:
-- _"Get the current SOL price and analyze the trend"_ → CoinGecko data, ~$0.001 USDC
-- _"Research the latest AI agents news and summarize"_ → Tavily web search, ~$0.01 USDC  
-- _"Generate an image of a futuristic crypto wallet"_ → OpenAI DALL·E, ~$0.05 USDC
-
-The agent selects the best wrapped API, pays autonomously, and shows you a **live receipt** with the USDC cost.
+Built for the **Locus Paygentic Hackathon**, ProcureBot demonstrates the future of machine-to-machine payments. Ask it anything in natural language; it routes to the best API provider, authorizes a micro-USDC payment via the Locus Machine Payments Protocol, and delivers the result — all in seconds.
 
 ---
 
-## 🚀 One-Click Setup
+## ✨ What it does
+
+ProcureBot lets a simple text prompt trigger a full AI procurement cycle:
+
+```
+"Get the current Solana price"
+  → Groq LLM routes to CoinGecko
+  → $0.01 USDC authorized & paid via Locus
+  → Live price data rendered in chat
+  → Receipt logged with txHash
+```
+
+No manual API key management. No manual payments. One wallet, your rules.
+
+---
+
+## 🖥️ App Pages
+
+| Route | Page |
+|---|---|
+| `/` | Landing Page — animated particle background, feature grid, CTA |
+| `/dashboard` | 3-column procurement dashboard — Policy Panel · Chat · Receipt Feed |
+
+---
+
+## 🏗️ Architecture
+
+```
+User prompt
+    │
+    ▼
+┌──────────────────────────────┐
+│  Groq LLM Router             │  ← llama-3.3-70b-versatile
+│  "Which tool should I use?"  │
+└──────────────┬───────────────┘
+               │
+       ┌───────▼────────┐
+       │  Tool Selected  │
+       └───────┬────────┘
+               │
+┌──────────────▼───────────────────────────────┐
+│   Locus Machine Payments Protocol             │
+│   callWrappedEndpoint(provider, endpoint, {}) │
+│   → USDC micro-payment authorized             │
+│   → API call executed                         │
+│   → txHash returned                           │
+└──────────────┬───────────────────────────────┘
+               │
+       ┌───────▼────────┐
+       │  Formatted      │
+       │  Response +     │
+       │  Receipt        │
+       └────────────────┘
+```
+
+---
+
+## 🔌 Supported Providers
+
+| Provider | What it does | Est. Cost |
+|---|---|---|
+| **CoinGecko** | Live crypto prices, market data, trending coins | $0.005–0.01 |
+| **Tavily** | Real-time web research & news search | $0.01 |
+| **OpenAI DALL·E** | Image generation from prompts (rendered inline) | $0.025 |
+| **OpenAI Chat** | GPT-4o-mini for analysis & writing | $0.01 |
+| **Groq** | Llama 3.3 for routing + fast answers | Free |
+| **Replicate** | Open source image/media models | $0.01+ |
+| **Perplexity** | AI-powered web search | $0.01 |
+
+---
+
+## ⚡ Quick Start
+
+### 1. Clone & install
 
 ```bash
 git clone https://github.com/NeelShah1505/ProcureBot.git
-cd ProcureBot
+cd ProcureBot/procurebot
 npm install
 ```
 
-Add your Locus API key to `.env.local`:
+### 2. Configure environment
+
 ```bash
 cp .env.example .env.local
-# Edit .env.local and add: LOCUS_API_KEY=claw_dev_YOUR_KEY_HERE
 ```
 
-Run:
+Edit `.env.local`:
+
+```env
+# Required — get at https://beta.paywithlocus.com
+LOCUS_API_KEY=claw_dev_YOUR_KEY_HERE
+
+# Required for AI routing
+GROQ_API_KEY=gsk_YOUR_GROQ_KEY
+
+# Required for image generation
+OPENAI_API_KEY=sk-YOUR_OPENAI_KEY
+
+# Required for web research
+TAVILY_API_KEY=tvly-YOUR_TAVILY_KEY
+```
+
+### 3. Run
+
 ```bash
 npm run dev
-# → http://localhost:3000
+```
+
+Open **http://localhost:3000** 🚀
+
+---
+
+## 🔑 Getting API Keys
+
+| Key | Where | Free tier? |
+|---|---|---|
+| `LOCUS_API_KEY` | [beta.paywithlocus.com](https://beta.paywithlocus.com) | Yes — hackathon credits |
+| `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) | Yes |
+| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com) | Paid |
+| `TAVILY_API_KEY` | [tavily.com](https://tavily.com) | Yes — 1000 free/mo |
+
+> **Fund your Locus wallet**: After creating your account, send USDC on Base to your agent wallet address. The balance reflects live in the dashboard left panel.
+
+---
+
+## 🧪 Demo Walkthrough
+
+### Step 1 — Landing Page
+Visit `localhost:3000`. Scroll through the marketing page (animated particle background). Click **"Try ProcureBot →"**.
+
+### Step 2 — Verify connection
+Top-right pill shows: `✦ Agent Connected · 4.374 USDC` ✅
+
+### Step 3 — Try a crypto price query
+Click **"SOL Price"** card or type:
+```
+Get the current Solana price with 24h analysis
+```
+Watch the live thinking steps:
+- `🧠 Groq selected: coingecko_price — real-time market data needed`
+- `💳 Requesting $0.01 USDC spend authorization…`
+- `🌐 Calling CoinGecko API…`
+- `✅ Success — formatting results…`
+- `💸 Paid $0.01 USDC`
+
+### Step 4 — Verify the receipt
+Right panel: **Session Spend +$0.01** · receipt card shows provider, endpoint, cost & timestamp.
+
+### Step 5 — Generate an image
+Click **"Gen Image"** or type:
+```
+Generate an image of a futuristic robot paying with crypto on the blockchain
+```
+The actual rendered image appears inline in the chat bubble — not just a link.
+
+### Step 6 — Edit spending policies
+In the left panel, **click any policy value** (e.g. `$0.50 USDC` next to Max/tx). An inline editor appears. Change it, press **Enter** to save or **Escape** to cancel.
+
+### Step 7 — Research query
+Click **"Research AI"** or type:
+```
+What is the latest news about AI agents this week?
+```
+Tavily performs live web research and returns a structured summary with source links.
+
+---
+
+## 📁 Project Structure
+
+```
+procurebot/
+├── app/
+│   ├── page.tsx                 # Landing page (scrollable)
+│   ├── dashboard/page.tsx       # 3-column dashboard (viewport-locked)
+│   ├── layout.tsx               # Root layout + Google Fonts
+│   ├── globals.css              # Design tokens, animations, scrollbar
+│   └── api/procure/route.ts     # Core procurement API route
+│       ├── routeWithGroq()      # LLM-powered tool selection
+│       ├── ruleBasedRoute()     # Fallback regex router
+│       └── fmtPrice/fmtImage/fmtTavily… formatters
+├── components/
+│   ├── ProcureChat.tsx          # Chat UI, markdown renderer, image handler
+│   ├── PolicyPanel.tsx          # Left sidebar with inline-editable policies
+│   ├── ReceiptCard.tsx          # Transaction receipt feed
+│   ├── LocusConnect.tsx         # Live connection + balance pill
+│   └── ui/
+│       ├── AnimatedBackground.tsx   # Canvas: particles + glowing orbs
+│       ├── GlowCard.tsx
+│       └── index.tsx
+└── lib/
+    └── locus.ts                 # Locus SDK: getBalance, callWrappedEndpoint, groqChat
 ```
 
 ---
 
-## 🔑 How to Get Your Locus API Key
+## 🔐 Spending Controls
 
-1. Sign up at [app.paywithlocus.com](https://app.paywithlocus.com)
-2. Create a wallet and fund it with USDC
-3. Generate an API key (starts with `claw_dev_`)
-4. Paste it into `.env.local`
+All spending is governed by policies enforced by the Locus platform:
 
-For the hackathon, use the $15 credit grant. Docs: [docs.paywithlocus.com](https://docs.paywithlocus.com)
+| Policy | Default | Description |
+|---|---|---|
+| **Max per tx** | $0.50 USDC | Hard cap per single API call |
+| **Daily cap** | $15.00 USDC | Maximum total spend per day |
+| **Auto-approve** | < $0.10 USDC | Instant transactions under threshold |
+| **Providers** | 6 enabled | CoinGecko, Tavily, OpenAI, Groq, Perplexity, Replicate |
+
+> Transactions above the auto-approve threshold return an `approvalUrl` — a manual confirmation link shown directly in the chat.
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 15 (App Router) + TypeScript |
-| Styling | Tailwind CSS v4 + custom glassmorphism |
-| UI Components | Aceternity UI-inspired components |
-| Background | Custom canvas animation (React Bits inspired) |
-| AI/Data APIs | CoinGecko, Tavily, OpenAI, Groq (via Locus) |
-| Payments | USDC on Base via PayWithLocus wrapped APIs |
-| Deployment | Vercel |
+| Layer | Tech |
+|---|---|
+| Framework | Next.js 16.2.3 (Turbopack) |
+| Language | TypeScript |
+| Styling | Vanilla CSS + Tailwind v4 |
+| Animations | CSS keyframes + HTML Canvas API |
+| AI Routing | Groq — llama-3.3-70b-versatile |
+| Payments | Locus Machine Payments Protocol (USDC on Base) |
+| Icons | Lucide React |
 
 ---
 
-## 🌐 Locus Wrapped APIs Used
+## 🌐 How Locus Works
 
-| Provider | Endpoint | Used For | Est. Cost |
-|----------|----------|----------|-----------|
-| CoinGecko | `simple-price` | Crypto price data | ~$0.001 USDC |
-| Tavily | `search` | Web research & news | ~$0.01 USDC |
-| OpenAI | `image-generate` | Image generation | ~$0.05 USDC |
-| Groq | `chat` | Fast AI inference (Llama 3) | ~$0.002 USDC |
-| Perplexity | `chat` | AI-powered research | ~$0.015 USDC |
+The Locus Machine Payments Protocol wraps external APIs with an on-chain payment layer on **Base (Ethereum L2)**. When ProcureBot calls:
 
-All paid automatically via: `https://api.paywithlocus.com/api/wrapped/<provider>/<endpoint>`
-
----
-
-## 🏗️ Project Structure
-
-```
-procurebot/
-├── app/
-│   ├── layout.tsx          # Root layout + Inter font + SEO
-│   ├── page.tsx            # Main 3-column dashboard
-│   ├── globals.css         # Dark theme + glassmorphism CSS
-│   └── api/
-│       └── procure/
-│           └── route.ts    # Main procurement endpoint (GET + POST)
-├── components/
-│   ├── ui/
-│   │   ├── index.tsx       # GlowCard, Badge, MovingBorderButton
-│   │   └── AnimatedBackground.tsx  # Canvas particles + Spotlight
-│   ├── ProcureChat.tsx     # Chat interface with thinking steps
-│   ├── PolicyPanel.tsx     # Left sidebar with spending policies
-│   ├── ReceiptCard.tsx     # Right sidebar live receipt feed
-│   └── LocusConnect.tsx    # Agent connection status
-└── lib/
-    ├── locus.ts            # All Locus API helpers
-    └── utils.ts            # cn() utility
+```ts
+await callWrappedEndpoint("coingecko", "simple-price", { ids: "solana", vs_currencies: "usd" })
 ```
 
----
+1. Locus checks your agent wallet's USDC balance on Base
+2. If sufficient and within policy → spend is authorized
+3. The wrapped API call executes server-side
+4. A `txHash` and `cost` are returned alongside the data
+5. Your balance decreases by the exact fractional USDC cost
 
-## 🚢 Deploy to Vercel
-
-```bash
-npm install -g vercel
-vercel deploy
-# Add LOCUS_API_KEY environment variable in Vercel dashboard
-```
-
-Or click:
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/NeelShah1505/ProcureBot)
+Every purchase is **transparent**, **on-chain verifiable**, and **policy-governed**.
 
 ---
 
-## 🎬 Demo Script (60-second Loom)
+## 🏆 Built For
 
-1. **[0-5s]** Show landing page — dark UI, animated particle background, ProcureBot header
-2. **[5-15s]** Point out connection banner showing "Connected as ProcureBot Agent" + wallet balance
-3. **[15-30s]** Type "Get the current SOL price" — show thinking steps animating, then result with price data + green receipt badge
-4. **[30-45s]** Click "Research AI" quick button — show Tavily search completing with source links + receipt feed updating
-5. **[45-60s]** Show receipt panel on the right — highlight USDC costs, timestamps, provider names. End with: "ProcureBot — autonomous procurement, real payments, zero friction."
+**Locus Paygentic Hackathon** — Showcasing the power of machine-initiated micro-payments for AI agents.
+
+> *"What if AI agents could pay for what they need, when they need it — just like a human with a credit card, but fully autonomous and on-chain?"*
 
 ---
 
-## 📸 Screenshots
-
-_[Add screenshots after deployment]_
-
----
-
-## 🏆 Hackathon Submission
-
-- **Event**: Locus Paygentic Hackathon #1
-- **Built in**: <12 hours
-- **Prize target**: $600
-
----
-
-*Built with ❤️ using [PayWithLocus](https://paywithlocus.com) — payment infrastructure for AI agents.*
+<div align="center">
+  <strong>ProcureBot</strong> · Built with ❤️ on <a href="https://paywithlocus.com">Locus</a>
+</div>

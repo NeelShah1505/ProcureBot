@@ -1,10 +1,7 @@
 "use client";
 import React, { useEffect, useRef } from "react";
-import { cn } from "@/lib/utils";
 
-// Aceternity-style Animated Background with particles and glowing grid
-// Inspired by React Bits & Aceternity — money/green futuristic theme
-export function AnimatedBackground({ className }: { className?: string }) {
+export function AnimatedBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -13,135 +10,124 @@ export function AnimatedBackground({ className }: { className?: string }) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let animationId: number;
-    let particles: Particle[] = [];
+    let animId: number;
+    let W = (canvas.width = window.innerWidth);
+    let H = (canvas.height = window.innerHeight);
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
     };
-    resize();
     window.addEventListener("resize", resize);
 
-    class Particle {
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      size: number;
-      opacity: number;
-      color: string;
+    // Particles
+    type Particle = {
+      x: number; y: number; vx: number; vy: number;
+      r: number; alpha: number; color: string;
+    };
+    const colors = ["#10b981", "#06b6d4", "#7c3aed", "#3b82f6"];
+    const particles: Particle[] = Array.from({ length: 60 }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.5 + 0.5,
+      alpha: Math.random() * 0.4 + 0.1,
+      color: colors[Math.floor(Math.random() * colors.length)],
+    }));
 
-      constructor() {
-        this.x = Math.random() * canvas!.width;
-        this.y = Math.random() * canvas!.height;
-        this.vx = (Math.random() - 0.5) * 0.4;
-        this.vy = (Math.random() - 0.5) * 0.4;
-        this.size = Math.random() * 1.5 + 0.5;
-        this.opacity = Math.random() * 0.6 + 0.1;
-        const colors = ["#00ff88", "#00e5ff", "#7c3aed", "#10b981"];
-        this.color = colors[Math.floor(Math.random() * colors.length)];
+    // Grid dots
+    const GRID = 60;
+    const gridDots: { x: number; y: number; alpha: number; phase: number }[] = [];
+    for (let x = 0; x < W; x += GRID) {
+      for (let y = 0; y < H; y += GRID) {
+        gridDots.push({ x, y, alpha: Math.random() * 0.15 + 0.03, phase: Math.random() * Math.PI * 2 });
       }
+    }
 
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        if (this.x < 0) this.x = canvas!.width;
-        if (this.x > canvas!.width) this.x = 0;
-        if (this.y < 0) this.y = canvas!.height;
-        if (this.y > canvas!.height) this.y = 0;
-      }
+    let t = 0;
+    const draw = () => {
+      t += 0.008;
+      ctx.clearRect(0, 0, W, H);
 
-      draw() {
-        if (!ctx) return;
-        ctx.save();
-        ctx.globalAlpha = this.opacity;
-        ctx.fillStyle = this.color;
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 8;
+      // Deep dark gradient background
+      const bg = ctx.createRadialGradient(W * 0.3, H * 0.2, 0, W * 0.3, H * 0.2, W * 0.9);
+      bg.addColorStop(0, "rgba(10, 5, 30, 1)");
+      bg.addColorStop(0.5, "rgba(5, 5, 16, 1)");
+      bg.addColorStop(1, "rgba(2, 2, 8, 1)");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Emerald glow top-left
+      const g1 = ctx.createRadialGradient(W * 0.15, H * 0.1, 0, W * 0.15, H * 0.1, W * 0.45);
+      g1.addColorStop(0, `rgba(16, 185, 129, ${0.07 + Math.sin(t) * 0.02})`);
+      g1.addColorStop(1, "transparent");
+      ctx.fillStyle = g1;
+      ctx.fillRect(0, 0, W, H);
+
+      // Violet glow bottom-right
+      const g2 = ctx.createRadialGradient(W * 0.85, H * 0.8, 0, W * 0.85, H * 0.8, W * 0.5);
+      g2.addColorStop(0, `rgba(124, 58, 237, ${0.08 + Math.cos(t * 0.7) * 0.02})`);
+      g2.addColorStop(1, "transparent");
+      ctx.fillStyle = g2;
+      ctx.fillRect(0, 0, W, H);
+
+      // Cyan glow center-top
+      const g3 = ctx.createRadialGradient(W * 0.5, -H * 0.1, 0, W * 0.5, -H * 0.1, W * 0.4);
+      g3.addColorStop(0, `rgba(6, 182, 212, ${0.05 + Math.sin(t * 1.3) * 0.015})`);
+      g3.addColorStop(1, "transparent");
+      ctx.fillStyle = g3;
+      ctx.fillRect(0, 0, W, H);
+
+      // Animated grid dots
+      gridDots.forEach((d) => {
+        const a = d.alpha * (0.5 + 0.5 * Math.sin(t * 1.2 + d.phase));
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.arc(d.x, d.y, 0.8, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${a})`;
         ctx.fill();
-        ctx.restore();
-      }
-    }
-
-    // Create particles
-    for (let i = 0; i < 120; i++) {
-      particles.push(new Particle());
-    }
-
-    const drawGrid = () => {
-      if (!ctx || !canvas) return;
-      const gridSize = 60;
-      ctx.strokeStyle = "rgba(0, 255, 136, 0.04)";
-      ctx.lineWidth = 0.5;
-
-      for (let x = 0; x < canvas.width; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
-      }
-      for (let y = 0; y < canvas.height; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-      }
-    };
-
-    const drawConnections = () => {
-      if (!ctx) return;
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 100) {
-            ctx.save();
-            ctx.globalAlpha = (1 - dist / 100) * 0.08;
-            ctx.strokeStyle = "#00ff88";
-            ctx.lineWidth = 0.5;
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.stroke();
-            ctx.restore();
-          }
-        }
-      }
-    };
-
-    const animate = () => {
-      if (!ctx || !canvas) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Background gradient
-      const grad = ctx.createRadialGradient(
-        canvas.width / 2, canvas.height / 2, 0,
-        canvas.width / 2, canvas.height / 2, canvas.width * 0.8
-      );
-      grad.addColorStop(0, "rgba(10, 5, 30, 1)");
-      grad.addColorStop(0.5, "rgba(5, 5, 20, 1)");
-      grad.addColorStop(1, "rgba(2, 2, 10, 1)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      drawGrid();
-      drawConnections();
-      particles.forEach((p) => {
-        p.update();
-        p.draw();
       });
 
-      animationId = requestAnimationFrame(animate);
+      // Draw particle connections
+      particles.forEach((p, i) => {
+        for (let j = i + 1; j < particles.length; j++) {
+          const q = particles[j];
+          const dx = p.x - q.x;
+          const dy = p.y - q.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 120) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(q.x, q.y);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.03 * (1 - dist / 120)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      });
+
+      // Draw particles
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = W;
+        if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H;
+        if (p.y > H) p.y = 0;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        const pulse = 0.5 + 0.5 * Math.sin(t * 2 + p.x);
+        ctx.fillStyle = p.color + Math.floor(pulse * 180 + 20).toString(16).padStart(2, "0");
+        ctx.fill();
+      });
+
+      animId = requestAnimationFrame(draw);
     };
 
-    animate();
-
+    draw();
     return () => {
-      cancelAnimationFrame(animationId);
+      cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
     };
   }, []);
@@ -149,52 +135,9 @@ export function AnimatedBackground({ className }: { className?: string }) {
   return (
     <canvas
       ref={canvasRef}
-      className={cn("fixed inset-0 -z-10", className)}
+      className="fixed inset-0 pointer-events-none"
+      style={{ zIndex: 0 }}
+      aria-hidden="true"
     />
-  );
-}
-
-// Aceternity-style Spotlight
-export function Spotlight({
-  className,
-  fill = "#00ff88",
-}: {
-  className?: string;
-  fill?: string;
-}) {
-  return (
-    <svg
-      className={cn("pointer-events-none absolute z-[1] opacity-70", className)}
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 3787 2842"
-      fill="none"
-    >
-      <g filter="url(#filter)">
-        <ellipse
-          cx="1924.71"
-          cy="273.501"
-          rx="1924.71"
-          ry="273.501"
-          transform="matrix(-0.822377 -0.568943 -0.568943 0.822377 3631.88 2291.09)"
-          fill={fill}
-          fillOpacity="0.21"
-        />
-      </g>
-      <defs>
-        <filter
-          id="filter"
-          x="0.860352"
-          y="0.838989"
-          width="3785.16"
-          height="2840.26"
-          filterUnits="userSpaceOnUse"
-          colorInterpolationFilters="sRGB"
-        >
-          <feFlood floodOpacity="0" result="BackgroundImageFix" />
-          <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-          <feGaussianBlur stdDeviation="151" result="effect1_foregroundBlur" />
-        </filter>
-      </defs>
-    </svg>
   );
 }

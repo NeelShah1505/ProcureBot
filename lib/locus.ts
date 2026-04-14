@@ -5,7 +5,7 @@
  * Auth: Authorization: Bearer <LOCUS_API_KEY>
  */
 
-const LOCUS_BASE = "https://api.paywithlocus.com/api";
+const LOCUS_BASE = "https://beta-api.paywithlocus.com/api";
 
 function getHeaders() {
   return {
@@ -49,8 +49,16 @@ export async function getBalance(): Promise<LocusBalance | null> {
       cache: "no-store",
     });
     if (!res.ok) return null;
-    const json: { success: boolean; data: LocusBalance } = await res.json();
-    return json.success ? json.data : null;
+    const json = await res.json() as {
+      success: boolean;
+      data?: { usdc_balance?: string; balance?: string; wallet_address?: string };
+    };
+    if (!json.success || !json.data) return null;
+    return {
+      balance: json.data.usdc_balance ?? json.data.balance ?? "0",
+      wallet_address: json.data.wallet_address ?? "",
+      token: "USDC",
+    };
   } catch {
     return null;
   }

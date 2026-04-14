@@ -1,153 +1,315 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getBalance,
-  getCoinPrice,
-  tavilySearch,
-  perplexitySearch,
-  generateImage,
-  groqChat,
-  openaiChat,
   callWrappedEndpoint,
+  groqChat,
 } from "@/lib/locus";
 
-// ─── Tool routing ─────────────────────────────────────────────────────────────
-
-type ToolName = "coingecko" | "tavily" | "perplexity" | "image" | "groq" | "openai";
+// ─── Types ────────────────────────────────────────────────────────────────────
+type ToolName =
+  | "coingecko_price"
+  | "coingecko_data"
+  | "coingecko_trending"
+  | "coingecko_global"
+  | "coingecko_markets"
+  | "tavily_search"
+  | "openai_image"
+  | "openai_chat"
+  | "groq_chat";
 
 interface RoutingDecision {
   tool: ToolName;
-  params: Record<string, string>;
+  coinId?: string;
+  query?: string;
   reason: string;
+  estCost: string;
 }
 
-/**
- * Simple rule-based routing + optional LLM routing.
- * Hardcoded keywords for speed; falls back to Groq for ambiguous requests.
- */
-async function routeToTool(message: string): Promise<RoutingDecision> {
+// ─── Groq-powered intelligent router ─────────────────────────────────────────
+async function routeWithGroq(message: string): Promise<RoutingDecision> {
+  const systemPrompt = `You are a tool router for ProcureBot. Given a user message, decide which tool to use.
+Available tools (respond with EXACTLY this JSON, nothing else):
+- coingecko_price: for current price of a specific coin. Include coinId (e.g. "bitcoin","ethereum","solana","bnb","cardano","dogecoin","polkadot","chainlink","avalanche-2","polygon").
+- coingecko_data: for detailed coin info, market cap, volume, all-time highs. Include coinId.
+- coingecko_trending: for trending/hot coins right now. No extra params.
+- coingecko_global: for overall crypto market stats. No extra params.
+- coingecko_markets: for top coins by market cap. No extra params.
+- tavily_search: for web research, news, current events, "what is X", summaries. Include query.
+- openai_image: for generating/creating images, illustrations. Include query as the image prompt.
+- openai_chat: for coding help, writing, analysis, calculations. Include query.
+- groq_chat: for fast general questions, explanations. Include query.
+
+Respond with valid JSON only:
+{"tool":"<tool_name>","coinId":"<only if coin tool>","query":"<full user message or refined prompt>","reason":"<1 sentence why>","estCost":"<$0.001–$0.05>"}`;
+
+  try {
+    const result = await groqChat(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ],
+      "llama-3.3-70b-versatile"
+    );
+
+    if (result.ok) {
+      const raw = result.data as { choices?: Array<{ message: { content: string } }> };
+      const text = raw.choices?.[0]?.message?.content ?? "";
+      // Extract JSON from response
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        const parsed = JSON.parse(match[0]) as RoutingDecision;
+        return parsed;
+      }
+    }
+  } catch {
+    // fall through to rule-based
+  }
+
+  // Fallback: rule-based
+  return ruleBasedRoute(message);
+}
+
+function ruleBasedRoute(message: string): RoutingDecision {
   const lower = message.toLowerCase();
 
-  // Price / crypto data — CoinGecko
-  const cryptoKeywords = ["price", "sol", "solana", "btc", "bitcoin", "eth", "ethereum", "crypto", "coin", "market cap", "token"];
-  if (cryptoKeywords.some((k) => lower.includes(k))) {
-    // Extract coin name
-    let coinId = "solana";
-    if (lower.includes("bitcoin") || lower.includes("btc")) coinId = "bitcoin";
-    else if (lower.includes("ethereum") || lower.includes("eth")) coinId = "ethereum";
-    else if (lower.includes("sol") || lower.includes("solana")) coinId = "solana";
-    else if (lower.includes("bnb")) coinId = "binancecoin";
-    else if (lower.includes("avax") || lower.includes("avalanche")) coinId = "avalanche-2";
-    return { tool: "coingecko", params: { coinId }, reason: `Fetching ${coinId} price data from CoinGecko` };
-  }
-
   // Image generation
-  const imageKeywords = ["generate", "image", "picture", "draw", "create", "illustration", "art", "photo", "visual"];
-  if (imageKeywords.some((k) => lower.includes(k))) {
-    return { tool: "image", params: { prompt: message }, reason: "Generating image with OpenAI DALL·E" };
+  if (/\b(generat|creat|draw|make|design|paint|render)\b.*\b(image|img|picture|art|illustration|photo|visual)\b/i.test(message) ||
+    /\b(image|picture|art)\b.*\b(of|for|showing)\b/i.test(message)) {
+    return { tool: "openai_image", query: message, reason: "Image generation request", estCost: "$0.04" };
   }
 
-  // Research / search — Tavily or Perplexity
-  const researchKeywords = ["research", "find", "search", "news", "latest", "summarize", "what is", "how does", "explain", "tell me about"];
-  if (researchKeywords.some((k) => lower.includes(k))) {
-    return { tool: "tavily", params: { query: message }, reason: "Researching with Tavily web search" };
+  // Crypto market global
+  if (/\b(market|crypto market|total market|global|overall|btc dominance)\b/i.test(message) &&
+    !/\b(bitcoin|eth|sol)\b.*\bprice\b/i.test(message)) {
+    return { tool: "coingecko_global", reason: "Crypto market overview", estCost: "$0.001" };
   }
 
-  // General AI — Groq (fast) or OpenAI
-  const aiKeywords = ["analyze", "write", "draft", "compare", "help me", "calculate", "translate", "code"];
-  if (aiKeywords.some((k) => lower.includes(k))) {
-    return { tool: "groq", params: { prompt: message }, reason: "Processing with Groq (Llama 3)" };
+  // Trending
+  if (/\b(trend|hot|top coin|best coin|pumping|rising|what.*(coin|crypto))\b/i.test(message)) {
+    return { tool: "coingecko_trending", reason: "Trending coins request", estCost: "$0.001" };
   }
 
-  // Fallback: use Groq to decide
-  return { tool: "groq", params: { prompt: message }, reason: "Routing via Groq (default AI processing)" };
+  // Specific coin price
+  const coinMap: Record<string, string> = {
+    bitcoin: "bitcoin", btc: "bitcoin",
+    ethereum: "ethereum", eth: "ethereum",
+    solana: "solana", sol: "solana",
+    bnb: "binancecoin", "binance coin": "binancecoin",
+    cardano: "cardano", ada: "cardano",
+    dogecoin: "dogecoin", doge: "dogecoin",
+    polkadot: "polkadot", dot: "polkadot",
+    chainlink: "chainlink", link: "chainlink",
+    avalanche: "avalanche-2", avax: "avalanche-2",
+    polygon: "matic-network", matic: "matic-network",
+    xrp: "ripple", ripple: "ripple",
+    shiba: "shiba-inu", shib: "shiba-inu",
+  };
+  for (const [kw, id] of Object.entries(coinMap)) {
+    if (lower.includes(kw)) {
+      const wantsDetail = /\b(detail|info|data|about|market cap|volume|all.time|history)\b/i.test(message);
+      return {
+        tool: wantsDetail ? "coingecko_data" : "coingecko_price",
+        coinId: id,
+        reason: `Fetching ${id} ${wantsDetail ? "detailed data" : "price"} from CoinGecko`,
+        estCost: "$0.001",
+      };
+    }
+  }
+
+  // Research / web
+  if (/\b(research|find|search|news|latest|summarize|what is|how does|explain|article|recent)\b/i.test(message)) {
+    return { tool: "tavily_search", query: message, reason: "Web research via Tavily", estCost: "$0.01" };
+  }
+
+  // Default: Groq fast AI
+  return { tool: "groq_chat", query: message, reason: "General AI via Groq (Llama 3)", estCost: "$0.002" };
 }
 
-// ─── Format results into readable response ────────────────────────────────────
+// ─── Response formatters ──────────────────────────────────────────────────────
 
-function formatCoinResult(data: unknown, coinId: string): string {
+function fmtPrice(data: unknown, coinId: string): string {
   try {
     const d = data as Record<string, Record<string, number>>;
     const coin = d[coinId];
-    if (!coin) return `No data found for ${coinId}.`;
-
-    const price = coin.usd?.toLocaleString("en-US", { style: "currency", currency: "USD" }) ?? "N/A";
-    const change24h = coin.usd_24h_change;
+    if (!coin) return `No price data found for ${coinId}.`;
+    const price = coin.usd;
+    const change = coin.usd_24h_change;
     const cap = coin.usd_market_cap;
     const vol = coin.usd_24h_vol;
+    const name = coinId.charAt(0).toUpperCase() + coinId.slice(1);
+    const arrow = change >= 0 ? "📈" : "📉";
+    const changeSign = change >= 0 ? "+" : "";
+    return [
+      `${arrow} **${name} Price Update**`,
+      ``,
+      `💰 Price: **$${price?.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}**`,
+      change !== undefined ? `📊 24h Change: **${changeSign}${change.toFixed(2)}%**` : null,
+      cap ? `🏦 Market Cap: **$${(cap / 1e9).toFixed(2)}B**` : null,
+      vol ? `📉 24h Volume: **$${(vol / 1e9).toFixed(2)}B**` : null,
+      ``,
+      `_Data from CoinGecko via Locus · Updated just now_`,
+    ].filter(Boolean).join("\n");
+  } catch { return `Received price data: ${JSON.stringify(data).slice(0, 300)}`; }
+}
+
+function fmtCoinData(data: unknown, coinId: string): string {
+  try {
+    type CoinData = {
+      name?: string; symbol?: string;
+      market_data?: {
+        current_price?: Record<string, number>;
+        market_cap?: Record<string, number>;
+        total_volume?: Record<string, number>;
+        price_change_percentage_24h?: number;
+        price_change_percentage_7d?: number;
+        price_change_percentage_30d?: number;
+        ath?: Record<string, number>;
+        ath_change_percentage?: Record<string, number>;
+        circulating_supply?: number;
+      };
+      description?: { en?: string };
+    };
+    const d = data as CoinData;
+    const md = d.market_data;
+    const name = d.name ?? coinId;
+    const symbol = (d.symbol ?? "").toUpperCase();
+    const price = md?.current_price?.usd;
+    const ch24 = md?.price_change_percentage_24h;
+    const ch7 = md?.price_change_percentage_7d;
+    const ch30 = md?.price_change_percentage_30d;
+    const cap = md?.market_cap?.usd;
+    const vol = md?.total_volume?.usd;
+    const ath = md?.ath?.usd;
+    const athChg = md?.ath_change_percentage?.usd;
+    const supply = md?.circulating_supply;
+    const desc = d.description?.en?.replace(/<[^>]+>/g, "").slice(0, 200);
+    const fmt = (n?: number) => n !== undefined ? `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}` : "N/A";
+    const fmtPct = (n?: number) => n !== undefined ? `${n >= 0 ? "+" : ""}${n.toFixed(2)}%` : "N/A";
 
     return [
-      `📊 **${coinId.charAt(0).toUpperCase() + coinId.slice(1)} (${coinId.toUpperCase()}) Price Data**`,
+      `🔎 **${name} (${symbol}) — Full Market Data**`,
       ``,
-      `💰 Current Price: **${price}**`,
-      change24h !== undefined ? `📈 24h Change: **${change24h > 0 ? "+" : ""}${change24h?.toFixed(2)}%**` : "",
-      cap ? `🏦 Market Cap: **$${(cap / 1e9).toFixed(2)}B**` : "",
-      vol ? `📉 24h Volume: **$${(vol / 1e9).toFixed(2)}B**` : "",
-      ``,
-      `_Data sourced from CoinGecko via Locus wrapped API_`,
+      `💰 Price: **${fmt(price)}**`,
+      ch24 !== undefined ? `📊 24h: **${fmtPct(ch24)}** · 7d: **${fmtPct(ch7)}** · 30d: **${fmtPct(ch30)}**` : null,
+      cap ? `🏦 Market Cap: **$${(cap / 1e9).toFixed(2)}B**` : null,
+      vol ? `📉 Volume (24h): **$${(vol / 1e9).toFixed(2)}B**` : null,
+      ath ? `🏆 All-Time High: **${fmt(ath)}** (${fmtPct(athChg)} from ATH)` : null,
+      supply ? `🔄 Circulating Supply: **${(supply / 1e6).toFixed(2)}M ${symbol}**` : null,
+      desc ? `\n📝 _${desc}..._` : null,
+      `\n_Data from CoinGecko via Locus_`,
     ].filter(Boolean).join("\n");
-  } catch {
-    return `Price data received: ${JSON.stringify(data, null, 2).slice(0, 500)}`;
-  }
+  } catch { return `Coin data received: ${JSON.stringify(data).slice(0, 400)}`; }
 }
 
-function formatTavilyResult(data: unknown): string {
+function fmtTrending(data: unknown): string {
   try {
-    const d = data as {
-      results?: Array<{ title: string; url: string; content: string }>;
-      answer?: string;
-    };
+    type TrendingCoin = { item: { name: string; symbol: string; market_cap_rank?: number; data?: { price?: number; price_change_percentage_24h?: Record<string, number> } } };
+    const d = data as { coins?: TrendingCoin[] };
+    const coins = d.coins?.slice(0, 7) ?? [];
+    const lines = [`🔥 **Trending Coins on CoinGecko**\n`];
+    coins.forEach((c, i) => {
+      const item = c.item;
+      const rank = item.market_cap_rank ? ` (#${item.market_cap_rank})` : "";
+      const price = item.data?.price;
+      const ch = item.data?.price_change_percentage_24h?.usd;
+      const arrow = ch !== undefined ? (ch >= 0 ? " 📈" : " 📉") : "";
+      lines.push(`${i + 1}. **${item.name}** (${item.symbol})${rank}${price ? ` — $${price.toLocaleString("en-US", { maximumFractionDigits: 6 })}` : ""}${ch !== undefined ? ` · ${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%${arrow}` : ""}`);
+    });
+    lines.push(`\n_Data from CoinGecko via Locus_`);
+    return lines.join("\n");
+  } catch { return `Trending data: ${JSON.stringify(data).slice(0, 400)}`; }
+}
 
-    let response = "";
+function fmtGlobal(data: unknown): string {
+  try {
+    type GlobalData = { data?: { total_market_cap?: Record<string, number>; total_volume?: Record<string, number>; market_cap_percentage?: Record<string, number>; market_cap_change_percentage_24h_usd?: number; active_cryptocurrencies?: number } };
+    const d = data as GlobalData;
+    const gd = d.data;
+    const cap = gd?.total_market_cap?.usd;
+    const vol = gd?.total_volume?.usd;
+    const btcDom = gd?.market_cap_percentage?.btc;
+    const ethDom = gd?.market_cap_percentage?.eth;
+    const chg = gd?.market_cap_change_percentage_24h_usd;
+    const active = gd?.active_cryptocurrencies;
+    return [
+      `🌍 **Global Crypto Market Overview**`,
+      ``,
+      cap ? `💰 Total Market Cap: **$${(cap / 1e12).toFixed(3)}T**` : null,
+      vol ? `📉 24h Volume: **$${(vol / 1e9).toFixed(2)}B**` : null,
+      chg !== undefined ? `📊 24h Change: **${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%**` : null,
+      btcDom ? `₿ BTC Dominance: **${btcDom.toFixed(1)}%**` : null,
+      ethDom ? `Ξ ETH Dominance: **${ethDom.toFixed(1)}%**` : null,
+      active ? `🪙 Active Cryptos: **${active.toLocaleString()}**` : null,
+      `\n_Data from CoinGecko via Locus_`,
+    ].filter(Boolean).join("\n");
+  } catch { return `Global data: ${JSON.stringify(data).slice(0, 400)}`; }
+}
+
+function fmtMarkets(data: unknown): string {
+  try {
+    type CoinMarket = { name: string; symbol: string; current_price: number; price_change_percentage_24h: number; market_cap: number };
+    const coins = (data as CoinMarket[]).slice(0, 8);
+    const lines = [`📊 **Top Coins by Market Cap**\n`];
+    coins.forEach((c, i) => {
+      const arrow = c.price_change_percentage_24h >= 0 ? "📈" : "📉";
+      const chg = `${c.price_change_percentage_24h >= 0 ? "+" : ""}${c.price_change_percentage_24h?.toFixed(2)}%`;
+      lines.push(`${i + 1}. **${c.name}** (${c.symbol.toUpperCase()}) — $${c.current_price?.toLocaleString()} · ${chg} ${arrow}`);
+    });
+    lines.push(`\n_Data from CoinGecko via Locus_`);
+    return lines.join("\n");
+  } catch { return `Markets data: ${JSON.stringify(data).slice(0, 400)}`; }
+}
+
+function fmtTavily(data: unknown): string {
+  try {
+    type TavilyResult = { title: string; url: string; content: string; score?: number };
+    const d = data as { results?: TavilyResult[]; answer?: string };
+    const parts: string[] = [];
     if (d.answer) {
-      response += `🔍 **Research Summary**\n\n${d.answer}\n\n`;
+      parts.push(`🔍 **Research Summary**\n\n${d.answer}`);
     }
-    if (d.results && d.results.length > 0) {
-      response += `**Top Sources:**\n`;
-      d.results.slice(0, 3).forEach((r, i) => {
-        response += `${i + 1}. **${r.title}**\n   ${r.content?.slice(0, 150)}…\n   🔗 ${r.url}\n\n`;
+    if (d.results?.length) {
+      parts.push(`\n**Top Sources:**`);
+      d.results.slice(0, 4).forEach((r, i) => {
+        const snippet = r.content?.replace(/\s+/g, " ").trim().slice(0, 180);
+        parts.push(`\n${i + 1}. **${r.title}**\n   ${snippet}…\n   🔗 ${r.url}`);
       });
     }
-
-    return response || "Research completed but no structured results returned.";
-  } catch {
-    return `Research data: ${JSON.stringify(data, null, 2).slice(0, 500)}`;
-  }
+    parts.push(`\n_Research via Tavily via Locus_`);
+    return parts.join("\n") || "Research completed.";
+  } catch { return `Research data: ${JSON.stringify(data).slice(0, 500)}`; }
 }
 
-function formatGroqResult(data: unknown): string {
+function fmtGroq(data: unknown): string {
   try {
     const d = data as { choices?: Array<{ message: { content: string } }> };
     return d.choices?.[0]?.message?.content ?? JSON.stringify(data).slice(0, 500);
-  } catch {
-    return String(data).slice(0, 500);
-  }
+  } catch { return String(data).slice(0, 500); }
 }
 
-function formatImageResult(data: unknown, _prompt: string): string {
+function fmtImage(data: unknown): string {
   try {
     const d = data as { data?: Array<{ url?: string; b64_json?: string }> };
     const img = d.data?.[0];
     if (img?.url) {
-      return `🎨 **Image Generated!**\n\n[View Image](${img.url})\n\n_Generated via OpenAI DALL·E via Locus_`;
+      return `🎨 **Image Generated!**\n\n[IMG:${img.url}]\n\n_Generated by OpenAI DALL·E via Locus_`;
     }
     if (img?.b64_json) {
-      return `🎨 **Image Generated** (base64 data received — ${img.b64_json.length} chars)\n\n_Generated via OpenAI DALL·E via Locus_`;
+      const dataUrl = `data:image/png;base64,${img.b64_json}`;
+      return `🎨 **Image Generated!**\n\n[IMG:${dataUrl}]\n\n_Generated by OpenAI DALL·E via Locus_`;
     }
-    return `Image generation response: ${JSON.stringify(data, null, 2).slice(0, 300)}`;
-  } catch {
-    return "Image generated but could not parse the response.";
-  }
+    return `Image generation response: ${JSON.stringify(data).slice(0, 300)}`;
+  } catch { return "Image generated but couldn't parse response."; }
 }
 
-// ─── GET — status/health check ────────────────────────────────────────────────
-
+// ─── GET — health/balance check ───────────────────────────────────────────────
 export async function GET() {
   try {
     const balance = await getBalance();
     if (!balance) {
       return NextResponse.json({
         connected: false,
-        error: "Could not connect. Verify LOCUS_API_KEY in .env.local",
+        error: "Could not connect. Check LOCUS_API_KEY in .env.local",
       });
     }
     return NextResponse.json({
@@ -161,132 +323,151 @@ export async function GET() {
   }
 }
 
-// ─── POST — main procurement endpoint ────────────────────────────────────────
-
+// ─── POST — main procurement ──────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const { message } = await req.json();
-
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "No message provided" }, { status: 400 });
     }
 
+    // No key guard
     if (!process.env.LOCUS_API_KEY || process.env.LOCUS_API_KEY === "claw_dev_your_key_here") {
       return NextResponse.json({
-        response: "⚠️ No Locus API key configured. Please add your `claw_dev_*` key to `.env.local` and restart the server.",
-        steps: ["No API key found"],
-        error: "Missing LOCUS_API_KEY",
+        response: `⚠️ **No Locus API key configured.**\n\nAdd your key to \`.env.local\`:\n\`\`\`\nLOCUS_API_KEY=claw_dev_YOUR_KEY\n\`\`\`\nGet your key at [app.paywithlocus.com](https://app.paywithlocus.com)`,
+        steps: ["❌ No API key found"],
       });
     }
 
-    // Step 1: Route
-    const routing = await routeToTool(message);
-    const steps: string[] = [routing.reason];
+    // Step 1: Route (try Groq, fallback to rule-based)
+    const steps: string[] = [];
+    let routing: RoutingDecision;
+    
+    try {
+      routing = await routeWithGroq(message);
+      steps.push(`🧠 Groq selected: ${routing.tool} — ${routing.reason}`);
+    } catch {
+      routing = ruleBasedRoute(message);
+      steps.push(`🔀 Routed: ${routing.tool} — ${routing.reason}`);
+    }
 
     // Step 2: Execute
+    steps.push(`💳 Requesting ${routing.estCost} USDC spend authorization…`);
+    steps.push(`🌐 Calling ${routing.tool.split("_")[0].charAt(0).toUpperCase() + routing.tool.split("_")[0].slice(1)} API…`);
+
     let result;
-    const estCost = "0.01"; // placeholder, updated per provider
     let provider = "";
     let endpoint = "";
 
     switch (routing.tool) {
-      case "coingecko": {
-        const { coinId } = routing.params;
-        steps.push(`Calling CoinGecko /simple/price for ${coinId}…`);
-        provider = "CoinGecko";
-        endpoint = "simple-price";
-        result = await getCoinPrice(coinId, "usd");
+      case "coingecko_price":
+        provider = "CoinGecko"; endpoint = "simple-price";
+        result = await callWrappedEndpoint("coingecko", "simple-price", {
+          ids: routing.coinId ?? "bitcoin",
+          vs_currencies: "usd",
+          include_market_cap: true,
+          include_24hr_vol: true,
+          include_24hr_change: true,
+        });
         break;
-      }
-      case "tavily": {
-        steps.push("Calling Tavily web search…");
-        provider = "Tavily";
-        endpoint = "search";
-        result = await tavilySearch(routing.params.query ?? message, "basic");
+
+      case "coingecko_data":
+        provider = "CoinGecko"; endpoint = "coin-data";
+        result = await callWrappedEndpoint("coingecko", "coin-data", {
+          id: routing.coinId ?? "bitcoin",
+        });
         break;
-      }
-      case "perplexity": {
-        steps.push("Calling Perplexity AI research…");
-        provider = "Perplexity";
-        endpoint = "chat";
-        result = await perplexitySearch(routing.params.query ?? message);
+
+      case "coingecko_trending":
+        provider = "CoinGecko"; endpoint = "trending";
+        result = await callWrappedEndpoint("coingecko", "trending", {});
         break;
-      }
-      case "image": {
-        steps.push("Calling OpenAI image generation…");
-        provider = "OpenAI";
-        endpoint = "image-generate";
-        result = await generateImage(routing.params.prompt ?? message);
+
+      case "coingecko_global":
+        provider = "CoinGecko"; endpoint = "global";
+        result = await callWrappedEndpoint("coingecko", "global", {});
         break;
-      }
-      case "groq": {
-        steps.push("Calling Groq (Llama 3)…");
-        provider = "Groq";
-        endpoint = "chat";
-        result = await groqChat([{ role: "user", content: routing.params.prompt ?? message }]);
+
+      case "coingecko_markets":
+        provider = "CoinGecko"; endpoint = "coins-markets";
+        result = await callWrappedEndpoint("coingecko", "coins-markets", {
+          vs_currency: "usd",
+        });
         break;
-      }
-      case "openai":
-      default: {
-        steps.push("Calling OpenAI GPT-4o-mini…");
-        provider = "OpenAI";
-        endpoint = "chat";
-        result = await openaiChat([{ role: "user", content: message }]);
+
+      case "tavily_search":
+        provider = "Tavily"; endpoint = "search";
+        result = await callWrappedEndpoint("tavily", "search", {
+          query: routing.query ?? message,
+        });
         break;
-      }
+
+      case "openai_image":
+        provider = "OpenAI"; endpoint = "image-generate";
+        result = await callWrappedEndpoint("openai", "image-generate", {
+          prompt: routing.query ?? message,
+          model: "gpt-image-1",
+          quality: "low",
+          size: "1024x1024",
+        });
+        break;
+
+      case "openai_chat":
+        provider = "OpenAI"; endpoint = "chat";
+        result = await callWrappedEndpoint("openai", "chat", {
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: routing.query ?? message }],
+          max_tokens: 1000,
+        });
+        break;
+
+      case "groq_chat":
+      default:
+        provider = "Groq"; endpoint = "chat";
+        result = await groqChat([
+          { role: "system", content: "You are ProcureBot, a helpful AI procurement assistant. Be concise, informative, and professional." },
+          { role: "user", content: routing.query ?? message },
+        ]);
+        break;
     }
 
-    // Step 3: Handle result
+    // Step 3: Handle non-OK
     if (!result.ok) {
-      // Approval required
       if (result.approvalUrl) {
-        steps.push("Transaction requires approval!");
+        steps.push("⚠️ Approval required for this transaction");
         return NextResponse.json({
-          response: `⚠️ **Approval Required**\n\nThis transaction needs your manual approval.\n\n[Approve Now →](${result.approvalUrl})`,
+          response: `⚠️ **Approval Required**\n\nThis transaction needs manual approval (above your auto-approve threshold).\n\n[👉 Approve Transaction](${result.approvalUrl})\n\n_After approving, try your request again._`,
           steps,
           receipt: {
-            id: crypto.randomUUID(),
-            timestamp: new Date().toISOString(),
-            provider,
-            endpoint,
-            cost: "0.00",
-            status: "approval_required",
-            approvalUrl: result.approvalUrl,
-            summary: message.slice(0, 80),
+            id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+            provider, endpoint, cost: "0.00", status: "approval_required",
+            approvalUrl: result.approvalUrl, summary: message.slice(0, 80),
           },
         });
       }
-
       return NextResponse.json({
         response: `❌ **Procurement Failed**\n\n${result.error}`,
-        steps,
-        error: result.error,
+        steps, error: result.error,
       });
     }
 
-    // Step 4: Format response
-    steps.push("Formatting results…");
+    // Step 4: Format
+    steps.push("✅ Success — formatting results…");
     let responseText = "";
-
     switch (routing.tool) {
-      case "coingecko":
-        responseText = formatCoinResult(result.data, routing.params.coinId ?? "solana");
-        break;
-      case "tavily":
-      case "perplexity":
-        responseText = formatTavilyResult(result.data);
-        break;
-      case "image":
-        responseText = formatImageResult(result.data, routing.params.prompt ?? message);
-        break;
-      case "groq":
-      case "openai":
-      default:
-        responseText = formatGroqResult(result.data);
-        break;
+      case "coingecko_price": responseText = fmtPrice(result.data, routing.coinId ?? "bitcoin"); break;
+      case "coingecko_data": responseText = fmtCoinData(result.data, routing.coinId ?? "bitcoin"); break;
+      case "coingecko_trending": responseText = fmtTrending(result.data); break;
+      case "coingecko_global": responseText = fmtGlobal(result.data); break;
+      case "coingecko_markets": responseText = fmtMarkets(result.data); break;
+      case "tavily_search": responseText = fmtTavily(result.data); break;
+      case "openai_image": responseText = fmtImage(result.data); break;
+      case "openai_chat": responseText = fmtGroq(result.data); break;
+      case "groq_chat": default: responseText = fmtGroq(result.data); break;
     }
 
-    steps.push("✓ Done — USDC debited");
+    const cost = result.cost ?? routing.estCost.replace("$", "");
+    steps.push(`💸 Paid ${result.cost ? `$${result.cost}` : routing.estCost} USDC`);
 
     return NextResponse.json({
       response: responseText,
@@ -294,9 +475,8 @@ export async function POST(req: NextRequest) {
       receipt: {
         id: crypto.randomUUID(),
         timestamp: new Date().toISOString(),
-        provider,
-        endpoint,
-        cost: result.cost ?? estCost,
+        provider, endpoint,
+        cost,
         status: "success",
         txHash: result.txHash,
         summary: message.slice(0, 80),
@@ -304,9 +484,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("[procure]", e);
-    return NextResponse.json(
-      { response: "Internal server error.", error: String(e) },
-      { status: 500 }
-    );
+    return NextResponse.json({ response: `⚠️ Internal error: ${String(e).slice(0, 200)}` }, { status: 500 });
   }
 }

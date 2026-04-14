@@ -2,72 +2,93 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-// Aceternity-style Moving Border Button
-export function MovingBorderButton({
-  children,
-  className,
-  containerClassName,
-  onClick,
-  disabled,
-  type = "button",
-}: {
+// ─── GlowCard ────────────────────────────────────────────────────────────────
+interface GlowCardProps {
   children: React.ReactNode;
   className?: string;
-  containerClassName?: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  type?: "button" | "submit";
-}) {
+  glowColor?: "emerald" | "cyan" | "violet" | "none";
+  hover?: boolean;
+}
+
+const glowMap = {
+  emerald: "hover:shadow-[0_0_40px_rgba(16,185,129,0.15)] hover:border-emerald-500/20",
+  cyan:    "hover:shadow-[0_0_40px_rgba(6,182,212,0.15)]  hover:border-cyan-500/20",
+  violet:  "hover:shadow-[0_0_40px_rgba(124,58,237,0.15)] hover:border-violet-500/20",
+  none:    "",
+};
+
+export function GlowCard({ children, className, glowColor = "emerald", hover = true }: GlowCardProps) {
   return (
-    <div className={cn("relative inline-flex", containerClassName)}>
-      {/* Animated border */}
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-500 via-cyan-400 to-violet-500 opacity-75 blur-sm animate-pulse" />
-      <button
-        type={type}
-        onClick={onClick}
-        disabled={disabled}
-        className={cn(
-          "relative inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3",
-          "bg-[#0a0a1a] text-sm font-semibold text-white",
-          "border border-white/10 transition-all duration-200",
-          "hover:bg-[#0f0f2a] disabled:opacity-50 disabled:cursor-not-allowed",
-          className
-        )}
-      >
-        {children}
-      </button>
+    <div
+      className={cn(
+        "relative rounded-2xl border border-white/8 bg-white/[0.04] backdrop-blur-xl overflow-hidden",
+        "transition-all duration-300",
+        hover && glowMap[glowColor],
+        className
+      )}
+    >
+      {children}
     </div>
   );
 }
 
-// Aceternity-style Glowing Button (secondary)
-export function GlowButton({
-  children,
-  className,
-  onClick,
-  disabled,
-  variant = "primary",
-}: {
+// ─── Badge ───────────────────────────────────────────────────────────────────
+interface BadgeProps {
   children: React.ReactNode;
+  variant?: "success" | "warning" | "error" | "info" | "neutral";
   className?: string;
+}
+
+const badgeVariants = {
+  success: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
+  warning: "bg-amber-500/15  text-amber-400  border-amber-500/25",
+  error:   "bg-red-500/15    text-red-400    border-red-500/25",
+  info:    "bg-cyan-500/15   text-cyan-400   border-cyan-500/25",
+  neutral: "bg-white/8       text-white/60   border-white/10",
+};
+
+export function Badge({ children, variant = "neutral", className }: BadgeProps) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
+        "border tracking-wide uppercase",
+        badgeVariants[variant],
+        className
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+// ─── GlowButton ──────────────────────────────────────────────────────────────
+interface GlowButtonProps {
+  children: React.ReactNode;
   onClick?: () => void;
   disabled?: boolean;
-  variant?: "primary" | "secondary" | "ghost";
-}) {
-  const variants = {
-    primary: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-400",
-    secondary: "bg-cyan-500/10 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400",
-    ghost: "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white",
-  };
+  variant?: "emerald" | "violet" | "ghost";
+  className?: string;
+  type?: "button" | "submit";
+}
 
+export function GlowButton({
+  children, onClick, disabled, variant = "emerald", className, type = "button"
+}: GlowButtonProps) {
+  const variants = {
+    emerald: "bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/25",
+    violet:  "bg-violet-600  hover:bg-violet-500  text-white shadow-lg shadow-violet-500/25",
+    ghost:   "bg-white/8     hover:bg-white/12    text-white/80 border border-white/10",
+  };
   return (
     <button
+      type={type}
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5",
-        "border text-sm font-medium transition-all duration-200",
-        "disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl",
+        "text-sm font-semibold transition-all duration-200 btn-lift",
+        "disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none",
         variants[variant],
         className
       )}
@@ -77,63 +98,38 @@ export function GlowButton({
   );
 }
 
-// Badge component
-export function Badge({
-  children,
-  variant = "default",
-  className,
-}: {
-  children: React.ReactNode;
-  variant?: "default" | "success" | "warning" | "error" | "info";
-  className?: string;
+// ─── MovingBorderButton ───────────────────────────────────────────────────────
+export function MovingBorderButton({ children, className, onClick }: {
+  children: React.ReactNode; className?: string; onClick?: () => void;
 }) {
-  const variants = {
-    default: "bg-white/10 text-white/70 border-white/10",
-    success: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-    warning: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-    error: "bg-red-500/15 text-red-400 border-red-500/30",
-    info: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
-  };
-
   return (
-    <span
+    <button
+      onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        variants[variant],
+        "relative inline-flex items-center justify-center px-6 py-2.5 rounded-xl",
+        "text-sm font-semibold text-white",
+        "bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-violet-500/20",
+        "border border-emerald-500/30 hover:border-emerald-500/60",
+        "transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/20",
         className
       )}
     >
       {children}
-    </span>
+    </button>
   );
 }
 
-// Aceternity-style Card with hover glow
-export function GlowCard({
-  children,
-  className,
-  glowColor = "emerald",
-}: {
-  children: React.ReactNode;
-  className?: string;
-  glowColor?: "emerald" | "cyan" | "violet";
-}) {
-  const glows = {
-    emerald: "hover:shadow-emerald-500/10",
-    cyan: "hover:shadow-cyan-500/10",
-    violet: "hover:shadow-violet-500/10",
-  };
-
+// ─── Spinner ─────────────────────────────────────────────────────────────────
+export function Spinner({ className }: { className?: string }) {
   return (
-    <div
-      className={cn(
-        "relative rounded-xl border border-white/10 bg-black/20 backdrop-blur-sm",
-        "transition-all duration-300 hover:border-white/20 hover:shadow-lg",
-        glows[glowColor],
-        className
-      )}
-    >
-      {children}
+    <div className={cn("flex items-center gap-1", className)}>
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400"
+          style={{ animationDelay: `${i * 0.2}s` }}
+        />
+      ))}
     </div>
   );
 }

@@ -11,7 +11,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "ProcureBot — AI Procurement Agent | PayWithLocus",
   description:
-    "Your AI procurement agent that autonomously buys digital services & APIs — with your money, your rules. Powered by Locus USDC micro-payments.",
+    "Your AI procurement agent that autonomously buys digital services & APIs with your money, your rules. Powered by Locus USDC micro-payments.",
   keywords: ["AI agent", "procurement", "Locus", "USDC", "micro-payments", "CoinGecko", "Tavily"],
   openGraph: {
     title: "ProcureBot — AI Procurement Agent",

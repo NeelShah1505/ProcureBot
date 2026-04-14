@@ -2,86 +2,59 @@
 
 :root {
   --font-inter: "Inter", system-ui, sans-serif;
-  --color-bg: #050510;
-  --color-surface: rgba(255, 255, 255, 0.03);
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-emerald: #10b981;
-  --color-cyan: #06b6d4;
-  --color-violet: #7c3aed;
+  --bg-base: #050510;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.14);
+  --emerald: #10b981;
+  --cyan: #06b6d4;
+  --violet: #7c3aed;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-html,
-body {
-  height: 100%;
-  overflow: hidden;
-  background-color: var(--color-bg);
+html {
+  background: var(--bg-base);
   color: #fff;
   font-family: var(--font-inter);
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
 }
 
-#__next, main {
-  height: 100%;
+body {
+  background: var(--bg-base);
+  color: #fff;
+  font-family: var(--font-inter);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+/* Dashboard uses this to lock scroll */
+.page-locked {
+  height: 100vh;
+  overflow: hidden;
 }
 
-/* Glassmorphism base for cards */
+/* ─── Custom Scrollbar ─────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ─── Glassmorphism cards ──────────────────── */
 .glass {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 16px;
 }
 
-/* Glow utilities */
-.glow-emerald {
-  box-shadow: 0 0 30px rgba(16, 185, 129, 0.08);
-}
-.glow-cyan {
-  box-shadow: 0 0 30px rgba(6, 182, 212, 0.08);
-}
-.glow-violet {
-  box-shadow: 0 0 30px rgba(124, 58, 237, 0.08);
-}
+/* ─── Glow utilities ───────────────────────── */
+.glow-emerald { box-shadow: 0 0 40px rgba(16,185,129,0.1), 0 0 80px rgba(16,185,129,0.04); }
+.glow-cyan    { box-shadow: 0 0 40px rgba(6,182,212,0.1),  0 0 80px rgba(6,182,212,0.04); }
+.glow-violet  { box-shadow: 0 0 40px rgba(124,58,237,0.1), 0 0 80px rgba(124,58,237,0.04); }
 
-/* Animated gradient border */
-@keyframes border-spin {
-  to {
-    --border-angle: 360deg;
-  }
-}
-
-/* Pulse glow for active elements */
-@keyframes pulse-glow {
-  0%, 100% {
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-/* Text gradient utility */
+/* ─── Gradient text ────────────────────────── */
 .text-gradient {
   background: linear-gradient(135deg, #10b981 0%, #06b6d4 50%, #7c3aed 100%);
   -webkit-background-clip: text;
@@ -89,21 +62,83 @@ body {
   background-clip: text;
 }
 
-/* Noise texture for depth */
-.noise {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  opacity: 0.03;
+/* ─── Shimmer animation ────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -500px 0; }
+  100% { background-position: 500px 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%);
+  background-size: 500px 100%;
+  animation: shimmer 2s infinite linear;
 }
 
-/* fieldSizing polyfill support */
-textarea {
-  field-sizing: content;
+/* ─── Pulse dot ─────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1.2); }
 }
+.pulse-dot {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+.pulse-dot:nth-child(2) { animation-delay: 0.2s; }
+.pulse-dot:nth-child(3) { animation-delay: 0.4s; }
 
-/* Line clamp utility */
+/* ─── Thinking step slide-in ────────────────── */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.slide-in { animation: slide-in 0.25s ease-out forwards; }
+
+/* ─── Receipt slide-up ──────────────────────── */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.slide-up { animation: slide-up 0.3s ease-out forwards; }
+
+/* ─── Floating glow orbs ────────────────────── */
+@keyframes float-orb {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50%       { transform: translateY(-20px) scale(1.05); }
+}
+.orb { animation: float-orb 8s ease-in-out infinite; }
+.orb-delayed { animation-delay: -4s; }
+
+/* ─── Border gradient animation ─────────────── */
+@keyframes border-glow {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 0.8; }
+}
+.border-glow { animation: border-glow 3s ease-in-out infinite; }
+
+/* ─── Line clamp ────────────────────────────── */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ─── Field sizing ──────────────────────────── */
+textarea { field-sizing: content; }
+
+/* ─── Message bubble fade-in ─────────────────── */
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.msg-in { animation: msg-in 0.3s ease-out forwards; }
+
+/* ─── Button hover lift ─────────────────────── */
+.btn-lift { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.btn-lift:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(16,185,129,0.25); }
+.btn-lift:active { transform: translateY(0); }
+
+/* ─── Number ticker (for balance) ───────────── */
+@keyframes tick-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+.tick-up { animation: tick-up 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
