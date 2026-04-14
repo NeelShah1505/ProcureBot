@@ -1,6 +1,10 @@
 # ProcureBot 🤖💸
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-procure--bot--one.vercel.app-10b981?style=for-the-badge)](https://procure-bot-one.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-procure--bot--one.vercel.app-10b981?style=for-the-badge)](https://procure-bot-one.vercel.app) [![Video Demo](https://img.shields.io/badge/Video_Demo-YouTube-FF0000?style=for-the-badge&logo=youtube)](https://youtu.be/CGu26FpdlVI?si=p6vFFcr_sDanYbPc)
+
+<p align="center">
+  <img src="public/logo.png" alt="ProcureBot Logo" width="200" />
+</p>
 
 > **The first AI agent that autonomously buys what it needs — paying with real USDC.**
 
