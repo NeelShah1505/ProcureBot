@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 import { Wifi, WifiOff, RefreshCw, Key, X, Eye, EyeOff, ExternalLink } from "lucide-react";
 
 // ─── Persist key in localStorage ────────────────────────────────────────────
@@ -56,48 +57,67 @@ function KeyModal({ onSuccess, onClose }: { onSuccess: (key: string) => void; on
     }
   };
 
-  return (
+  const modal = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16,
+        background: "rgba(0,0,0,0.75)",
+        backdropFilter: "blur(8px)",
+      }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-md rounded-2xl p-6 flex flex-col gap-5"
         style={{
-          background: "rgba(10,10,28,0.98)",
+          width: "100%", maxWidth: 440,
+          borderRadius: 20, padding: 24,
+          display: "flex", flexDirection: "column", gap: 20,
+          background: "rgba(10,10,28,0.99)",
           border: "1px solid rgba(16,185,129,0.25)",
-          boxShadow: "0 0 80px rgba(16,185,129,0.1)",
+          boxShadow: "0 0 80px rgba(16,185,129,0.12), 0 25px 60px rgba(0,0,0,0.6)",
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)" }}>
-              <Key className="h-4 w-4 text-emerald-400" />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 12,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.25)",
+            }}>
+              <Key style={{ width: 16, height: 16, color: "#10b981" }} />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Connect Locus Wallet</p>
-              <p className="text-[11px] text-white/35">Paste your API key to begin</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", margin: 0 }}>Connect Locus Wallet</p>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", margin: 0 }}>Paste your API key to begin</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-white/25 hover:text-white/60 hover:bg-white/8 transition-all">
-            <X className="h-4 w-4" />
+          <button onClick={onClose} style={{
+            background: "none", border: "none", cursor: "pointer",
+            color: "rgba(255,255,255,0.3)", padding: 6, borderRadius: 8,
+          }}>
+            <X style={{ width: 16, height: 16 }} />
           </button>
         </div>
 
-        {/* Info */}
-        <div className="rounded-xl px-4 py-3 text-[11px] text-white/50 leading-relaxed"
-          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+        {/* Security note */}
+        <div style={{
+          padding: "10px 14px", borderRadius: 12, fontSize: 11,
+          color: "rgba(255,255,255,0.45)", lineHeight: 1.6,
+          background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+        }}>
           Your key is stored locally in your browser and sent securely with each request. It is never logged or stored on our servers.
         </div>
 
         {/* Input */}
         <div>
-          <label className="block text-[11px] text-white/40 mb-1.5 uppercase tracking-wider">Locus API Key</label>
-          <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+          <label style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>Locus API Key</label>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            borderRadius: 12, padding: "10px 12px",
+            background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)",
+          }}>
             <input
               ref={inputRef}
               type={show ? "text" : "password"}
@@ -105,44 +125,51 @@ function KeyModal({ onSuccess, onClose }: { onSuccess: (key: string) => void; on
               onChange={(e) => { setVal(e.target.value); setErr(""); }}
               onKeyDown={(e) => e.key === "Enter" && connect()}
               placeholder="claw_dev_xxxxxxxxxxxx"
-              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 focus:outline-none font-mono"
+              style={{
+                flex: 1, background: "transparent", border: "none", outline: "none",
+                fontSize: 13, color: "#fff", fontFamily: "monospace",
+              }}
             />
-            <button onClick={() => setShow(s => !s)} className="text-white/25 hover:text-white/60 transition-colors">
-              {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            <button onClick={() => setShow(s => !s)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", padding: 0 }}>
+              {show ? <EyeOff style={{ width: 16, height: 16 }} /> : <Eye style={{ width: 16, height: 16 }} />}
             </button>
           </div>
-          {err && <p className="text-[11px] text-red-400 mt-1.5">{err}</p>}
+          {err && <p style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}>{err}</p>}
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col gap-2">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <button
             onClick={connect}
             disabled={testing || !val.trim()}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
             style={{
-              background: val.trim() && !testing
-                ? "linear-gradient(135deg, #10b981, #06b6d4)"
-                : "rgba(255,255,255,0.07)",
+              width: "100%", padding: "11px 0", borderRadius: 12, border: "none",
+              fontSize: 14, fontWeight: 600, color: "#fff", cursor: testing || !val.trim() ? "not-allowed" : "pointer",
+              background: val.trim() && !testing ? "linear-gradient(135deg, #10b981, #06b6d4)" : "rgba(255,255,255,0.07)",
               opacity: testing ? 0.7 : 1,
+              transition: "all 0.2s",
             }}
           >
             {testing ? "Verifying…" : "Connect Wallet"}
           </button>
-
           <a
             href="https://beta.paywithlocus.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 text-[11px] text-emerald-400/60 hover:text-emerald-400 transition-colors py-1"
+            target="_blank" rel="noopener noreferrer"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              fontSize: 11, color: "rgba(16,185,129,0.6)", textDecoration: "none", padding: "4px 0",
+            }}
           >
-            <ExternalLink className="h-3 w-3" />
+            <ExternalLink style={{ width: 12, height: 12 }} />
             Get a free Locus API key →
           </a>
         </div>
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(modal, document.body);
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────

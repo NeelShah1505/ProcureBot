@@ -372,38 +372,38 @@ export async function POST(req: NextRequest) {
           include_market_cap: true,
           include_24hr_vol: true,
           include_24hr_change: true,
-        });
+        }, apiKey);
         break;
 
       case "coingecko_data":
         provider = "CoinGecko"; endpoint = "coin-data";
         result = await callWrappedEndpoint("coingecko", "coin-data", {
           id: routing.coinId ?? "bitcoin",
-        });
+        }, apiKey);
         break;
 
       case "coingecko_trending":
         provider = "CoinGecko"; endpoint = "trending";
-        result = await callWrappedEndpoint("coingecko", "trending", {});
+        result = await callWrappedEndpoint("coingecko", "trending", {}, apiKey);
         break;
 
       case "coingecko_global":
         provider = "CoinGecko"; endpoint = "global";
-        result = await callWrappedEndpoint("coingecko", "global", {});
+        result = await callWrappedEndpoint("coingecko", "global", {}, apiKey);
         break;
 
       case "coingecko_markets":
         provider = "CoinGecko"; endpoint = "coins-markets";
         result = await callWrappedEndpoint("coingecko", "coins-markets", {
           vs_currency: "usd",
-        });
+        }, apiKey);
         break;
 
       case "tavily_search":
         provider = "Tavily"; endpoint = "search";
         result = await callWrappedEndpoint("tavily", "search", {
           query: routing.query ?? message,
-        });
+        }, apiKey);
         break;
 
       case "openai_image":
@@ -413,7 +413,7 @@ export async function POST(req: NextRequest) {
           model: "gpt-image-1",
           quality: "low",
           size: "1024x1024",
-        });
+        }, apiKey);
         break;
 
       case "openai_chat":
@@ -422,16 +422,20 @@ export async function POST(req: NextRequest) {
           model: "gpt-4o-mini",
           messages: [{ role: "user", content: routing.query ?? message }],
           max_tokens: 1000,
-        });
+        }, apiKey);
         break;
 
       case "groq_chat":
       default:
         provider = "Groq"; endpoint = "chat";
-        result = await groqChat([
-          { role: "system", content: "You are ProcureBot, a helpful AI procurement assistant. Be concise, informative, and professional." },
-          { role: "user", content: routing.query ?? message },
-        ]);
+        result = await callWrappedEndpoint("groq", "chat", {
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: "You are ProcureBot, a helpful AI procurement assistant. Be concise, informative, and professional." },
+            { role: "user", content: routing.query ?? message },
+          ],
+          max_tokens: 800,
+        }, apiKey);
         break;
     }
 

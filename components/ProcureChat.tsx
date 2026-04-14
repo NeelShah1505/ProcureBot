@@ -234,7 +234,7 @@ function WelcomeScreen({ onPrompt, isConnected }: { onPrompt: (p: string) => voi
             style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-            Add your Locus API key to .env.local to begin
+            Click &ldquo;Connect Wallet&rdquo; in the top-right to begin
           </div>
         )}
       </div>
