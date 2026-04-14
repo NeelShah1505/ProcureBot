@@ -303,13 +303,14 @@ function fmtImage(data: unknown): string {
 }
 
 // ─── GET — health/balance check ───────────────────────────────────────────────
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const apiKey = req.headers.get("x-locus-api-key") ?? process.env.LOCUS_API_KEY;
   try {
-    const balance = await getBalance();
+    const balance = await getBalance(apiKey ?? undefined);
     if (!balance) {
       return NextResponse.json({
         connected: false,
-        error: "Could not connect. Check LOCUS_API_KEY in .env.local",
+        error: "Could not connect. Check your Locus API key.",
       });
     }
     return NextResponse.json({
@@ -331,10 +332,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No message provided" }, { status: 400 });
     }
 
+    // Resolve API key: user-supplied header takes priority over env var
+    const apiKey = req.headers.get("x-locus-api-key") ?? process.env.LOCUS_API_KEY;
+
     // No key guard
-    if (!process.env.LOCUS_API_KEY || process.env.LOCUS_API_KEY === "claw_dev_your_key_here") {
+    if (!apiKey || apiKey === "claw_dev_your_key_here") {
       return NextResponse.json({
-        response: `⚠️ **No Locus API key configured.**\n\nAdd your key to \`.env.local\`:\n\`\`\`\nLOCUS_API_KEY=claw_dev_YOUR_KEY\n\`\`\`\nGet your key at [app.paywithlocus.com](https://app.paywithlocus.com)`,
+        response: `⚠️ **No Locus API key found.**\n\nClick **"Connect Wallet"** in the top-right and paste your Locus API key to get started.\n\nGet a free key at [beta.paywithlocus.com](https://beta.paywithlocus.com)`,
         steps: ["❌ No API key found"],
       });
     }

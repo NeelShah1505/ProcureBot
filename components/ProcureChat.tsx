@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { GlowCard, Spinner } from "@/components/ui";
 import { Receipt } from "@/components/ReceiptCard";
+import { getUserApiKey } from "@/components/LocusConnect";
 
 export interface Message {
   id: string;
@@ -462,7 +463,10 @@ export default function ProcureChat({ onReceiptAdded, isConnected }: ProcureChat
       try {
         const res = await fetch("/api/procure", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(getUserApiKey() ? { "x-locus-api-key": getUserApiKey()! } : {}),
+          },
           body: JSON.stringify({ message: text.trim() }),
         });
         const data = await res.json();

@@ -7,9 +7,9 @@
 
 const LOCUS_BASE = "https://beta-api.paywithlocus.com/api";
 
-function getHeaders() {
+function getHeaders(apiKey?: string) {
   return {
-    Authorization: `Bearer ${process.env.LOCUS_API_KEY}`,
+    Authorization: `Bearer ${apiKey ?? process.env.LOCUS_API_KEY}`,
     "Content-Type": "application/json",
   };
 }
@@ -42,10 +42,10 @@ export interface WrappedCallResult {
 
 // ─── Balance ──────────────────────────────────────────────────────────────────
 
-export async function getBalance(): Promise<LocusBalance | null> {
+export async function getBalance(apiKey?: string): Promise<LocusBalance | null> {
   try {
     const res = await fetch(`${LOCUS_BASE}/pay/balance`, {
-      headers: getHeaders(),
+      headers: getHeaders(apiKey),
       cache: "no-store",
     });
     if (!res.ok) return null;
@@ -84,14 +84,15 @@ export async function getWrappedCatalog(): Promise<string> {
 export async function callWrappedEndpoint(
   provider: string,
   endpoint: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  apiKey?: string
 ): Promise<WrappedCallResult> {
   try {
     const res = await fetch(
       `${LOCUS_BASE}/wrapped/${provider}/${endpoint}`,
       {
         method: "POST",
-        headers: getHeaders(),
+        headers: getHeaders(apiKey),
         body: JSON.stringify(body),
       }
     );
