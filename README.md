@@ -1,5 +1,7 @@
 # ProcureBot 🤖💸
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-procure--bot--one.vercel.app-10b981?style=for-the-badge)](https://procure-bot-one.vercel.app)
+
 > **The first AI agent that autonomously buys what it needs — paying with real USDC.**
 
 Built for the **Locus Paygentic Hackathon**, ProcureBot demonstrates the future of machine-to-machine payments. Ask it anything in natural language; it routes to the best API provider, authorizes a micro-USDC payment via the Locus Machine Payments Protocol, and delivers the result — all in seconds.
