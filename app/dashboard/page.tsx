@@ -18,7 +18,11 @@ export default function Dashboard() {
 
   const handleConnectionChange = useCallback(
     (state: { isConnected: boolean; balance?: string; walletAddress?: string }) => {
-      setConnectionState(state);
+      setConnectionState({
+        isConnected: state.isConnected,
+        balance: state.balance,
+        walletAddress: state.walletAddress,
+      });
     },
     []
   );
